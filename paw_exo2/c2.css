@@ -1,0 +1,31 @@
+.center{
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-decoration: none;
+    }
+    .a{
+      margin-top: 20px;
+      color: red;
+      background-color: bisque;
+      text-decoration: none;
+      box-shadow: 2px 2px 2px grey;
+    }
+    body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+.card {
+  background: white;
+  padding: 20px;
+  width: 300px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  border-radius: 10px;
+  text-align: center;
+  margin-bottom: 20px;
+}
