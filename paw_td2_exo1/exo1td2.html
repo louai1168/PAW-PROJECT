@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Exo 1 - Attendance</title>
+  <link rel="stylesheet" href="exo1td2.css">
+</head>
+<body>
+  <h2>exo1 </h2>
+
+  <table id="attendance">
+    <thead>
+      <tr>
+        <th>Student ID</th>
+        <th>Last Name</th>
+        <th>First Name</th>
+        <th>Course</th>
+        <th colspan="6">Sessions</th>
+        <th colspan="6">Participation</th>
+        <th>Message</th>
+      </tr>
+      <tr>
+        <th colspan="4"></th>
+        <th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>S5</th><th>S6</th>
+        <th>P1</th><th>P2</th><th>P3</th><th>P4</th><th>P5</th><th>P6</th>
+        <th></th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <tr>
+        <td>202523</td><td>Bahidj</td><td>Louai</td><td>PAW</td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <td>202524</td><td>Ramzi</td><td>Ali</td><td>PAW</td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <td>202525</td><td>Remdani</td><td>Yacine</td><td>PAW</td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <button class="b" onclick="analyze()">Analyze Attendance</button>
+
+  <script src="exo1td2.js"></script>
+</body>
+</html>
