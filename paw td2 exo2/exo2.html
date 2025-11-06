@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Add Student</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="exo2.css">
+  <link rel="stylesheet" href="exo1td2.css">
+</head>
+<body>
+
+  <h2>Add New Student</h2>
+  <div class="card">
+    <form id="studentForm">
+      <label for="studentID">Student ID:</label><br>
+      <input type="text" id="studentID" name="studentID" placeholder="Enter your ID">
+      <div id="idError" class="error"></div><br>
+
+      <label for="lastName">Last Name:</label><br>
+      <input type="text" id="lastName" name="lastName" placeholder="Enter your last name">
+      <div id="lastError" class="error"></div><br>
+
+      <label for="firstName">First Name:</label><br>
+      <input type="text" id="firstName" name="firstName" placeholder="Enter your first name">
+      <div id="firstError" class="error"></div><br>
+
+      <label for="email">Email:</label><br>
+      <input type="email" id="email" name="email" placeholder="Enter your email">
+      <div id="emailError" class="error"></div><br>
+
+      <input type="submit" value="Add Student">
+    </form>
+
+    <a href="exo1td2.html" class="center">
+      <button class="a">Go to Table</button>
+    </a>
+  </div>
+
+  <script src="exo2.js"></script>
+
+</body>
+</html>
