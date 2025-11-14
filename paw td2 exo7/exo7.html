@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>exo 7 </title>
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+
+    h2 { text-align: center; }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    th, td {
+      border: 1px solid #333;
+      padding: 8px;
+    }
+
+    th { background-color: #e6e6e6; }
+
+    .b {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      background-color: #0078d7;
+      color: white;
+      border-radius: 5px;
+      margin-right: 10px;
+    }
+
+    .b:hover { background-color: #005fa3; }
+
+    .green { background-color: #9fef9f; }
+    .yellow { background-color: #fffba1; }
+    .red { background-color: #ffa3a3; }
+
+    #sortStatus {
+      margin-top: 10px;
+      font-style: italic;
+      font-size: 16px;
+    }
+
+    #searchBox {
+      padding: 8px;
+      width: 250px;
+      margin-bottom: 15px;
+      font-size: 15px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>Attendance Management</h2>
+
+<label><b>Search by Name:</b></label><br>
+<input type="text" id="searchBox" placeholder="Type a first or last name...">
+
+<table id="attendance">
+  <thead>
+    <tr>
+      <th>Student ID</th>
+      <th>Last Name</th>
+      <th>First Name</th>
+      <th>Course</th>
+      <th colspan="6">Sessions</th>
+      <th colspan="6">Participation</th>
+      <th>Message</th>
+    </tr>
+
+    <tr>
+      <th colspan="4"></th>
+      <th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>S5</th><th>S6</th>
+      <th>P1</th><th>P2</th><th>P3</th><th>P4</th><th>P5</th><th>P6</th>
+      <th></th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr>
+      <td>202523</td><td>Bahidj</td><td>Louai</td><td>PAW</td>
+      <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+      <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+
+      <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+      <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>202524</td><td>Ramzi</td><td>Ali</td><td>PAW</td>
+      <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+      <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+
+      <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+      <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>202525</td><td>Remdani</td><td>Yacine</td><td>PAW</td>
+      <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+      <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+
+      <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+      <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+
+<button class="b" onclick="analyze()">Analyze Attendance</button>
+<button class="b" id="sortAbs">Sort by Absences (Ascending)</button>
+<button class="b" id="sortPart">Sort by Participation (Descending)</button>
+
+<p id="sortStatus"></p>
+
+<script>
+
+function analyze() {
+  $("#attendance tbody tr").each(function () {
+    const checkboxes = $(this).find("input[type='checkbox']");
+    const sessions = checkboxes.slice(0, 6);
+    const parts = checkboxes.slice(6, 12);
+
+    const absences = 6 - sessions.filter(":checked").length;
+    const participation = parts.filter(":checked").length;
+
+    $(this).removeClass("green yellow red");
+
+    let msg = "";
+    if (absences < 3) {
+      $(this).addClass("green");
+      msg = "Good attendance – Excellent participation";
+    } else if (absences <= 4) {
+      $(this).addClass("yellow");
+      msg = "Warning – low attendance – Participate more";
+    } else {
+      $(this).addClass("red");
+      msg = "Excluded – too many absences!";
+    }
+
+    $(this).find("td:last").text(absences + " Abs / " + msg);
+  });
+}
+
+$("#searchBox").on("keyup", function () {
+  const term = $(this).val().toLowerCase();
+
+  $("#attendance tbody tr").filter(function () {
+    const last = $(this).find("td:nth-child(2)").text().toLowerCase();
+    const first = $(this).find("td:nth-child(3)").text().toLowerCase();
+
+    $(this).toggle(last.includes(term) || first.includes(term));
+  });
+});
+
+$("#sortAbs").click(function () {
+  analyze(); 
+
+  let rows = $("#attendance tbody tr").get();
+
+  rows.sort(function (a, b) {
+    const absA = parseInt($(a).find("td:last").text());
+    const absB = parseInt($(b).find("td:last").text());
+    return absA - absB;
+  });
+
+  $("#attendance tbody").append(rows);
+  $("#sortStatus").text("Currently sorted by absences (ascending).");
+});
+
+$("#sortPart").click(function () {
+  analyze(); 
+
+  let rows = $("#attendance tbody tr").get();
+
+  rows.sort(function (a, b) {
+    const pA = $(a).find("input[type='checkbox']").slice(6, 12).filter(":checked").length;
+    const pB = $(b).find("input[type='checkbox']").slice(6, 12).filter(":checked").length;
+
+    return pB - pA; 
+  });
+
+  $("#attendance tbody").append(rows);
+  $("#sortStatus").text("Currently sorted by participation (descending).");
+});
+
+</script>
+
+</body>
+</html>
