@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Add Student</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="exo1.css">
+</head>
+<body>
+
+  <h2>Add New Student</h2>
+  <div class="card">
+
+    <form action="exo1.php" method="POST">
+
+      <label for="studentID">Student ID:</label><br>
+      <input type="text" id="studentID" name="student_id" placeholder="Enter your ID">
+      <div id="idError" class="error"></div><br>
+
+      <label for="name">Full Name:</label><br>
+      <input type="text" id="name" name="name" placeholder="Enter your full name">
+      <div id="nameError" class="error"></div><br>
+
+      <label for="group">Group:</label><br>
+      <input type="text" id="group" name="group" placeholder="Enter your group">
+      <div id="groupError" class="error"></div><br>
+
+      <input type="submit" value="Add Student">
+
+    </form>
+  </div>
+
+  <table id="attendance">
+    <thead>
+      <tr>
+        <th>Student ID</th>
+        <th>Name</th>
+        <th>Group</th>
+        <th>Course</th>
+        <th colspan="6">Sessions</th>
+        <th colspan="6">Participation</th>
+        <th>Message</th>
+      </tr>
+      <tr>
+        <th colspan="4"></th>
+        <th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>S5</th><th>S6</th>
+        <th>P1</th><th>P2</th><th>P3</th><th>P4</th><th>P5</th><th>P6</th>
+        <th></th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <tr>
+        <td>202523</td><td>Bahidj Louai</td><td>G1</td><td>PAW</td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <td>202524</td><td>Ramzi Ali</td><td>G2</td><td>PAW</td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td></td>
+      </tr>
+
+      <tr>
+        <td>202525</td><td>Remdani Yacine</td><td>G3</td><td>PAW</td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <button class="b" onclick="analyze()">Analyze Attendance</button>
+
+  <script src="exo1.js"></script>
+
+</body>
+</html>

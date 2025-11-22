@@ -44,10 +44,8 @@ document.getElementById("studentForm").addEventListener("submit", function(e) {
   rows.forEach(row => {
     const inputs = row.querySelectorAll("input[type='checkbox']");
     const sessions = Array.from(inputs).slice(0, 6);
-    //const participations = Array.from(inputs).slice(6, 12);
 
     const absences = sessions.length - sessions.filter(c => c.checked).length;
-    //const parts = participations.filter(c => c.checked).length;
 
     let message = "";
     row.classList.remove("green", "yellow", "red");
