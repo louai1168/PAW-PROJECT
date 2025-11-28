@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management - Admin</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">📊 Attendance Management</div>
+        <ul class="nav-menu">
+            <li><a href="home.html">🏠 Dashboard</a></li>
+            <li><a href="students.html" class="active">👥 Students</a></li>
+            <li><a href="statistics.html">📈 Analytics</a></li>
+        </ul>
+        <div class="nav-user">
+            <span id="userName">Admin</span>
+            <button id="logoutBtn">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-between align-center">
+                    <h2 class="card-title">Student Management</h2>
+                    <div class="d-flex gap-10">
+                        <button id="importBtn" class="btn btn-secondary">📥 Import</button>
+                        <button id="exportBtn" class="btn btn-primary">📥 Export</button>
+                        <button id="addStudentBtn" class="btn btn-success">➕ Add</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="🔍 Search by name or ID...">
+                <select id="groupFilter">
+                    <option value="">All Groups</option>
+                </select>
+                <select id="levelFilter">
+                    <option value="">All Levels</option>
+                    <option value="L1">L1</option>
+                    <option value="L2">L2</option>
+                    <option value="L3">L3</option>
+                    <option value="M1">M1</option>
+                    <option value="M2">M2</option>
+                </select>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Reg. #</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Group</th>
+                            <th>Level</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTable">
+                        <tr>
+                            <td colspan="6" class="text-center">Loading students...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-between align-center mt-20">
+                <div>Showing <span id="studentCount">0</span> students</div>
+                <div id="pagination"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="studentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Add Student</h3>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <form id="studentForm">
+                <input type="hidden" id="studentId">
+                <div class="form-group">
+                    <label for="regNumber">Registration Number *</label>
+                    <input type="text" id="regNumber" placeholder="e.g., STU001" required>
+                </div>
+                <div class="form-group">
+                    <label for="fullName">Full Name *</label>
+                    <input type="text" id="fullName" placeholder="John Doe" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email *</label>
+                    <input type="email" id="email" placeholder="john@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="groupSelect">Group</label>
+                    <select id="groupSelect">
+                        <option value="">Select Group...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password *</label>
+                    <input type="password" id="password" placeholder="Enter password" required>
+                    <small>Leave blank to keep current password (when editing)</small>
+                </div>
+                <div class="d-flex gap-10">
+                    <button type="submit" class="btn btn-primary btn-block">Save Student</button>
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="importModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Import Students</h3>
+                <button class="modal-close" id="closeImportModal">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="csvFile">Select CSV File</label>
+                <input type="file" id="csvFile" accept=".csv">
+                <small>Format: registration_number,full_name,email,group_id,password</small>
+            </div>
+            <div class="d-flex gap-10">
+                <button id="uploadBtn" class="btn btn-primary btn-block">Upload & Import</button>
+                <button class="btn btn-secondary" id="cancelImportBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script>
+        let students = [];
+        let filteredStudents = [];
+        let currentPage = 1;
+        const perPage = 10;
+
+        $(document).ready(function() {
+            checkSession();
+            loadGroups();
+            loadStudents();
+            
+            $('#logoutBtn').click(logout);
+            $('#addStudentBtn').click(() => openModal());
+            $('#closeModal, #cancelBtn').click(closeModal);
+            $('#importBtn').click(openImportModal);
+            $('#closeImportModal, #cancelImportBtn').click(closeImportModal);
+            $('#exportBtn').click(exportStudents);
+            $('#studentForm').submit(saveStudent);
+            $('#uploadBtn').click(importStudents);
+            $('#searchInput').on('input', debounce(filterStudents, 300));
+            $('#groupFilter, #levelFilter').change(filterStudents);
+        });
+
+        function checkSession() {
+            $.get('../../backend/api/auth.php?action=check')
+                .done(function(response) {
+                    if (response.success && response.data && response.data.role === 'administrator') {
+                        $('#userName').text(response.data.full_name);
+                        window.currentUser = response.data;
+                        return;
+                    }
+                    window.location.href = '../index.html';
+                })
+                .fail(function() {
+                    window.location.href = '../index.html';
+                });
+        }
+
+        function loadGroups() {
+            $.get('../../backend/api/students.php?action=get_groups')
+                .done(function(response) {
+                    if (response.success && response.data) {
+                        const options = response.data.map(g => 
+                            `<option value="${g.group_id}">${g.group_name} - ${g.level} (${g.department})</option>`
+                        ).join('');
+                        $('#groupSelect, #groupFilter').append(options);
+                    }
+                });
+        }
+
+        function loadStudents() {
+            showLoading();
+            $.get('../../backend/api/students.php?action=list')
+                .done(function(response) {
+                    hideLoading();
+                    if (response.success && response.data) {
+                        students = response.data;
+                        filteredStudents = students;
+                        renderStudents();
+                    }
+                })
+                .fail(function(error) {
+                    hideLoading();
+                    handleError(error);
+                });
+        }
+
+        function filterStudents() {
+            const search = $('#searchInput').val().toLowerCase();
+            const group = $('#groupFilter').val();
+            const level = $('#levelFilter').val();
+
+            filteredStudents = students.filter(student => {
+                const matchesSearch = !search || 
+                    student.full_name.toLowerCase().includes(search) ||
+                    (student.matricule || '').toLowerCase().includes(search) ||
+                    student.email.toLowerCase().includes(search);
+                
+                const matchesGroup = !group || student.group_id == group;
+                const matchesLevel = !level || student.level === level;
+
+                return matchesSearch && matchesGroup && matchesLevel;
+            });
+
+            currentPage = 1;
+            renderStudents();
+        }
+
+        function renderStudents() {
+            const start = (currentPage - 1) * perPage;
+            const end = start + perPage;
+            const pageStudents = filteredStudents.slice(start, end);
+
+            if (pageStudents.length === 0) {
+                $('#studentsTable').html('<tr><td colspan="6" class="text-center">No students found</td></tr>');
+                $('#studentCount').text('0');
+                return;
+            }
+
+            const html = pageStudents.map(student => `
+                <tr>
+                    <td>${student.matricule || 'N/A'}</td>
+                    <td>${student.full_name}</td>
+                    <td>${student.email}</td>
+                    <td>${student.group_name || 'N/A'}</td>
+                    <td><span class="badge badge-info">${student.level || 'N/A'}</span></td>
+                    <td>
+                        <div class="d-flex gap-10">
+                            <button class="btn btn-sm btn-primary" onclick="editStudent(${student.student_id})">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteStudent(${student.student_id}, '${student.full_name}')">Delete</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            $('#studentsTable').html(html);
+            $('#studentCount').text(filteredStudents.length);
+            renderPagination();
+        }
+
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredStudents.length / perPage);
+            if (totalPages <= 1) {
+                $('#pagination').html('');
+                return;
+            }
+
+            let html = '';
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<button class="btn btn-sm ${i === currentPage ? 'btn-primary' : 'btn-secondary'}" 
+                        onclick="goToPage(${i})" style="margin: 0 2px;">${i}</button>`;
+            }
+            $('#pagination').html(html);
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            renderStudents();
+        }
+
+        function openModal(student = null) {
+            if (student) {
+                $('#modalTitle').text('Edit Student');
+                $('#studentId').val(student.student_id);
+                $('#regNumber').val(student.matricule);
+                $('#fullName').val(student.full_name);
+                $('#email').val(student.email);
+                $('#groupSelect').val(student.group_id || '');
+                $('#password').val('').attr('placeholder', 'Leave blank to keep current password');
+            } else {
+                $('#modalTitle').text('Add Student');
+                $('#studentForm')[0].reset();
+                $('#studentId').val('');
+                $('#password').attr('placeholder', '');
+            }
+            $('#studentModal').addClass('show');
+        }
+
+        function closeModal() {
+            $('#studentModal').removeClass('show');
+        }
+
+        function editStudent(studentId) {
+            const student = students.find(s => s.student_id == studentId);
+            if (student) {
+                openModal(student);
+            }
+        }
+
+        function saveStudent(e) {
+            e.preventDefault();
+
+            if (!validateForm('#studentForm')) {
+                showError('Please fill in all required fields');
+                return;
+            }
+
+            const data = {
+                action: $('#studentId').val() ? 'update' : 'create',
+                student_id: $('#studentId').val(),
+                matricule: $('#regNumber').val(),
+                full_name: $('#fullName').val(),
+                email: $('#email').val(),
+                group_id: $('#groupSelect').val() || null,
+                password: $('#password').val()
+            };
+
+            showLoading();
+            $.post('../../backend/api/students.php', data)
+                .done(function(response) {
+                    hideLoading();
+                    if (response.success) {
+                        showSuccess(data.action === 'create' ? 'Student added successfully' : 'Student updated successfully');
+                        closeModal();
+                        loadStudents();
+                    } else {
+                        showError(response.error || 'Operation failed');
+                    }
+                })
+                .fail(function(error) {
+                    hideLoading();
+                    handleError(error);
+                });
+        }
+
+        function deleteStudent(studentId, studentName) {
+            if (!confirm(`Are you sure you want to delete ${studentName}?`)) {
+                return;
+            }
+
+            showLoading();
+            $.post('../../backend/api/students.php', {
+                action: 'delete',
+                student_id: studentId
+            })
+            .done(function(response) {
+                hideLoading();
+                if (response.success) {
+                    showSuccess('Student deleted successfully');
+                    loadStudents();
+                } else {
+                    showError(response.error || 'Delete failed');
+                }
+            })
+            .fail(function(error) {
+                hideLoading();
+                handleError(error);
+            });
+        }
+
+        function openImportModal() {
+            $('#importModal').addClass('show');
+        }
+
+        function closeImportModal() {
+            $('#importModal').removeClass('show');
+            $('#csvFile').val('');
+        }
+
+        function importStudents() {
+            const file = $('#csvFile')[0].files[0];
+            if (!file) {
+                showError('Please select a CSV file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'import');
+            formData.append('csv_file', file);
+
+            showLoading();
+            $.ajax({
+                url: '../../backend/api/students.php',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    hideLoading();
+                    if (response.success) {
+                        showSuccess('Students imported successfully');
+                        closeImportModal();
+                        loadStudents();
+                    } else {
+                        showError(response.error || 'Import failed');
+                    }
+                },
+                error: function(error) {
+                    hideLoading();
+                    handleError(error);
+                }
+            });
+        }
+
+        function exportStudents() {
+            const exportData = filteredStudents.map(s => ({
+                'Registration Number': s.matricule,
+                'Full Name': s.full_name,
+                'Email': s.email,
+                'Group': s.group_name || 'N/A',
+                'Level': s.level || 'N/A'
+            }));
+
+            const timestamp = new Date().toISOString().split('T')[0];
+            exportToCSV(exportData, `students_${timestamp}.csv`);
+            showSuccess('Data exported successfully');
+        }
+
+        function logout() {
+            $.post('../../backend/api/auth.php', { action: 'logout' })
+                .always(function() {
+                    window.location.href = '../index.html';
+                });
+        }
+    </script>
+</body>
+</html>

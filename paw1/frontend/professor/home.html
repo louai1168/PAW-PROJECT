@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professor Dashboard - Attendance System</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">📊 Attendance Management</div>
+        <ul class="nav-menu">
+            <li><a href="home.html">🏠 Courses</a></li>
+            <li><a href="sessions.html">📅 Sessions</a></li>
+            <li><a href="summary.html">📋 Reports</a></li>
+        </ul>
+        <div class="nav-user">
+            <span id="userName"></span>
+            <button id="logoutBtn">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1 class="mt-20 mb-20">My Courses</h1>
+        
+        <div class="card">
+            <div class="d-flex justify-between align-center mb-20">
+                <h2 class="card-title">Assigned Courses</h2>
+                <button class="btn btn-primary" id="createSessionBtn">➕ New Session</button>
+            </div>
+            
+            <div class="form-group">
+                <input type="text" id="searchCourse" placeholder="🔍 Search courses...">
+            </div>
+            
+            <div id="courseList" class="card-grid">
+            </div>
+        </div>
+    </div>
+
+    <div id="createSessionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Create Attendance Session</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="createSessionForm">
+                <div class="form-group">
+                    <label for="sessionCourse">Course</label>
+                    <select id="sessionCourse" name="course_id" required>
+                        <option value="">Select Course</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="sessionGroup">Group</label>
+                    <select id="sessionGroup" name="group_id" required>
+                        <option value="">Select Group</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="sessionDate">Date</label>
+                    <input type="date" id="sessionDate" name="session_date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="sessionType">Session Type</label>
+                    <select id="sessionType" name="session_type" required>
+                        <option value="lecture">Lecture</option>
+                        <option value="lab">Lab</option>
+                        <option value="tutorial">Tutorial</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">Create Session</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/professor.js"></script>
+</body>
+</html>

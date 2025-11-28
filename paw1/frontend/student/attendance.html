@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Justifications - Student</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">📊 Attendance Management</div>
+        <ul class="nav-menu">
+            <li><a href="home.html">🏠 My Courses</a></li>
+            <li><a href="attendance.html" class="active">📋 Justifications</a></li>
+        </ul>
+        <div class="nav-user">
+            <span id="userName">Student</span>
+            <button id="logoutBtn">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card">
+                <div class="card-header">
+                <div class="d-flex justify-between align-center">
+                    <h2 class="card-title">Absence Justifications</h2>
+                    <button id="newJustificationBtn" class="btn btn-primary">➕ Submit Justification</button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Course</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Response</th>
+                            <th>Submitted</th>
+                        </tr>
+                    </thead>
+                    <tbody id="justificationsTable">
+                        <tr>
+                            <td colspan="6" class="text-center">Loading justifications...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="justificationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Submit Absence Justification</h3>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <form id="justificationForm">
+                <div class="form-group">
+                    <label for="sessionSelect">Select Session *</label>
+                    <select id="sessionSelect" required>
+                        <option value="">Loading sessions...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="reason">Reason for Absence *</label>
+                    <textarea id="reason" rows="4" required placeholder="Explain why you were absent..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="document">Supporting Document (Optional)</label>
+                    <input type="file" id="document" accept=".pdf,.jpg,.jpeg,.png">
+                    <small>Accepted formats: PDF, JPG, PNG (Max 5MB)</small>
+                </div>
+                <div class="d-flex gap-10">
+                    <button type="submit" class="btn btn-primary btn-block">Submit Justification</button>
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script>
+        let studentId = null;
+
+        $(document).ready(function() {
+            checkSession().done(function() {
+                loadJustifications();
+            });
+            
+            $('#logoutBtn').click(logout);
+            $('#newJustificationBtn').click(openModal);
+            $('#closeModal, #cancelBtn').click(closeModal);
+            $('#justificationForm').submit(submitJustification);
+        });
+
+        function checkSession() {
+            return $.get('../../backend/api/auth.php?action=check')
+                .done(function(response) {
+                    if (response.success && response.data && response.data.role === 'student') {
+                        window.currentUser = response.data;
+                        studentId = response.data.user_id;
+                        $('#userName').text(response.data.full_name);
+                        return;
+                    }
+                    window.location.href = '../index.html';
+                })
+                .fail(function() {
+                    window.location.href = '../index.html';
+                });
+        }
+
+        function loadJustifications() {
+            if (!studentId) {
+                return;
+            }
+
+            $.get('../../backend/api/justifications.php', {
+                action: 'list',
+                student_id: studentId
+            })
+            .done(function(response) {
+                if (response.success) {
+                    renderJustifications(response.data || []);
+                } else {
+                    $('#justificationsTable').html('<tr><td colspan="6" class="text-center">Unable to load justifications</td></tr>');
+                }
+            })
+            .fail(function(error) {
+                $('#justificationsTable').html('<tr><td colspan="6" class="text-center">Unable to load justifications</td></tr>');
+                handleError(error);
+            });
+        }
+
+        function renderJustifications(justifications) {
+            if (!justifications || justifications.length === 0) {
+                $('#justificationsTable').html('<tr><td colspan="6" class="text-center">No justifications submitted yet</td></tr>');
+                return;
+            }
+
+            const html = justifications.map(j => `
+                <tr>
+                    <td>${formatDate(j.session_date)}</td>
+                    <td>${j.course_name}</td>
+                    <td>${j.reason}</td>
+                    <td><span class="badge badge-${getJustificationBadge(j.status)}">${j.status}</span></td>
+                    <td>${j.response || '-'}</td>
+                    <td>${formatDate(j.submitted_at)}</td>
+                </tr>
+            `).join('');
+
+            $('#justificationsTable').html(html);
+        }
+
+        function openModal() {
+            $('#justificationModal').addClass('show');
+            loadAbsentSessions();
+        }
+
+        function closeModal() {
+            $('#justificationModal').removeClass('show');
+            $('#justificationForm')[0].reset();
+        }
+
+        function loadAbsentSessions() {
+            $('#sessionSelect').html('<option value="">Loading sessions...</option>');
+
+            $.get('../../backend/api/attendance.php', { action: 'my_absent_sessions' })
+                .done(function(response) {
+                    if (response.success) {
+                        const sessions = response.data || [];
+
+                        if (sessions.length === 0) {
+                            $('#sessionSelect').html('<option value="">No absent sessions to justify</option>');
+                            return;
+                        }
+
+                        const options = sessions.map(session => `
+                            <option value="${session.session_id}">
+                                ${session.course_name} - ${formatDate(session.session_date)} (${session.start_time ? formatTime(session.start_time) : 'N/A'})
+                            </option>
+                        `).join('');
+
+                        $('#sessionSelect').html('<option value="">Select a session...</option>' + options);
+                        return;
+                    }
+
+                    $('#sessionSelect').html('<option value="">Unable to load sessions</option>');
+                })
+                .fail(function(error) {
+                    $('#sessionSelect').html('<option value="">Unable to load sessions</option>');
+                    handleError(error);
+                });
+        }
+
+        function submitJustification(e) {
+            e.preventDefault();
+
+            if (!validateForm('justificationForm')) {
+                showError('Please fill in all required fields');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'submit');
+            formData.append('session_id', $('#sessionSelect').val());
+            formData.append('reason', $('#reason').val());
+            
+            const file = $('#document')[0].files[0];
+            if (file) {
+                if (file.size > 5 * 1024 * 1024) {
+                    showError('File size must be less than 5MB');
+                    return;
+                }
+                formData.append('file', file);
+            }
+
+            showLoading();
+            $.ajax({
+                url: '../../backend/api/justifications.php',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    hideLoading();
+                    if (response.success) {
+                        showSuccess('Justification submitted successfully');
+                        closeModal();
+                        loadJustifications();
+                        loadAbsentSessions();
+                    } else {
+                        showError(response.error || 'Failed to submit justification');
+                    }
+                },
+                error: function(error) {
+                    hideLoading();
+                    handleError(error);
+                }
+            });
+        }
+
+        function getJustificationBadge(status) {
+            switch(status.toLowerCase()) {
+                case 'approved': return 'success';
+                case 'rejected': return 'danger';
+                case 'pending': return 'warning';
+                default: return 'info';
+            }
+        }
+
+        function logout() {
+            $.post('../../backend/api/auth.php', { action: 'logout' })
+                .always(function() {
+                    window.location.href = '../index.html';
+                });
+        }
+    </script>
+</body>
+</html>
+

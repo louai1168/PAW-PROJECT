@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Summary - Professor</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">📊 Attendance Management</div>
+        <ul class="nav-menu">
+            <li><a href="home.html">🏠 Courses</a></li>
+            <li><a href="session.html">📅 Sessions</a></li>
+            <li><a href="summary.html" class="active">📋 Reports</a></li>
+        </ul>
+        <div class="nav-user">
+            <span id="userName">Professor</span>
+            <button id="logoutBtn">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-between align-center">
+                    <h2 class="card-title">Attendance Reports</h2>
+                    <button id="exportBtn" class="btn btn-primary">Export to CSV</button>
+                </div>
+            </div>
+
+            <div class="search-bar">
+                <select id="courseFilter">
+                    <option value="">All Courses</option>
+                </select>
+                <select id="groupFilter">
+                    <option value="">All Groups</option>
+                </select>
+                <input type="date" id="dateFrom" placeholder="From Date">
+                <input type="date" id="dateTo" placeholder="To Date">
+                <button id="filterBtn" class="btn btn-primary">Filter</button>
+                <button id="resetBtn" class="btn btn-secondary">Reset</button>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalSessions">0</div>
+                    <div class="stat-label">Total Sessions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgAttendance">0%</div>
+                    <div class="stat-label">Avg Attendance</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalStudents">0</div>
+                    <div class="stat-label">Total Students</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="absentRate">0%</div>
+                    <div class="stat-label">Absent Rate</div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="sortable" data-sort="matricule">Reg. Number ▼</th>
+                            <th class="sortable" data-sort="full_name">Full Name ▼</th>
+                            <th class="sortable" data-sort="group_name">Group ▼</th>
+                            <th>Total Sessions</th>
+                            <th>Present</th>
+                            <th>Absent</th>
+                            <th>Late</th>
+                            <th>Attendance %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summaryTable">
+                        <tr>
+                            <td colspan="8" class="text-center">Loading data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script>
+        let summaryData = [];
+        let allData = [];
+        let sortColumn = 'matricule';
+        let sortDirection = 'asc';
+
+        $(document).ready(function() {
+            console.log('Document ready fired');
+            checkSession();
+            $('#summaryTable').html('<tr><td colspan="8" class="text-center">Loading...</td></tr>');
+            
+            console.log('About to register click handlers');
+            $('#logoutBtn').click(logout);
+            $('#filterBtn').click(function() {
+                console.log('Filter button clicked!');
+                loadSummary();
+            });
+            $('#resetBtn').click(resetFilters);
+            $('#exportBtn').click(exportData);
+            $('#courseFilter').change(loadGroups);
+            console.log('Click handlers registered');
+            
+            $('.sortable').click(function() {
+                const column = $(this).data('sort');
+                if (sortColumn === column) {
+                    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortColumn = column;
+                    sortDirection = 'asc';
+                }
+                sortAndRender();
+                updateSortIndicators();
+            });
+        });
+
+        function checkSession() {
+            $.get('../../backend/api/auth.php?action=check')
+                .done(function(response) {
+                    if (response.success && response.data && response.data.role === 'professor') {
+                        window.currentUser = response.data;
+                        $('#userName').text(response.data.full_name);
+                        loadCourses();
+                        loadSummary(); 
+                    } else {
+                        window.location.href = '../index.html';
+                    }
+                })
+                .fail(function() {
+                    window.location.href = '../index.html';
+                });
+        }
+
+        function loadCourses() {
+            if (!window.currentUser) return;
+            
+            $.get('../../backend/api/courses.php', { professor_id: window.currentUser.user_id })
+                .done(function(response) {
+                    if (response.success && response.data) {
+                        const options = response.data.map(course => 
+                            `<option value="${course.course_id}">${course.course_name}</option>`
+                        ).join('');
+                        $('#courseFilter').append(options);
+                    }
+                })
+                .fail(handleError);
+        }
+
+        function loadGroups() {
+            const courseId = $('#courseFilter').val();
+            if (!courseId) {
+                $('#groupFilter').html('<option value="">All Groups</option>');
+                return;
+            }
+
+            $.get('../../backend/api/courses.php', {
+                course_id: courseId
+            })
+            .done(function(response) {
+                if (response.success && response.data && response.data.groups) {
+                    const options = response.data.groups.map(group => 
+                        `<option value="${group.group_id}">${group.group_name} - ${group.level}</option>`
+                    ).join('');
+                    $('#groupFilter').html('<option value="">All Groups</option>' + options);
+                }
+            })
+            .fail(handleError);
+        }
+
+        function loadSummary() {
+            console.log('loadSummary called');
+            const courseId = $('#courseFilter').val();
+            console.log('Selected courseId:', courseId);
+            
+            console.log('About to call showLoading and make API request');
+            showLoading();
+            
+            const params = {
+                action: 'summary'
+            };
+            
+            if (courseId) params.course_id = courseId;
+
+            const groupId = $('#groupFilter').val();
+            const dateFrom = $('#dateFrom').val();
+            const dateTo = $('#dateTo').val();
+
+            if (groupId) params.group_id = groupId;
+            if (dateFrom) params.date_from = dateFrom;
+            if (dateTo) params.date_to = dateTo;
+
+            console.log('API Request params:', params);
+            $.get('../../backend/api/reports.php', params)
+                .done(function(response) {
+                    hideLoading();
+                    console.log('Summary response:', response);
+                    if (response.success && response.data) {
+                        console.log('Summary data:', response.data);
+                        allData = response.data;
+                        summaryData = allData;
+                        calculateStatistics();
+                        sortAndRender();
+                    } else {
+                        console.log('No data or failed:', response);
+                        summaryData = [];
+                        calculateStatistics();
+                        $('#summaryTable').html('<tr><td colspan="8" class="text-center">No data available</td></tr>');
+                    }
+                })
+                .fail(function(error) {
+                    hideLoading();
+                    handleError(error);
+                    summaryData = [];
+                    calculateStatistics();
+                });
+        }
+
+        function updateStatistics(stats) {
+            if (stats) {
+                $('#totalSessions').text(stats.total_sessions || 0);
+                $('#avgAttendance').text((stats.average_attendance || 0) + '%');
+                $('#totalStudents').text(stats.total_students || 0);
+                $('#absentRate').text((stats.absent_rate || 0) + '%');
+            }
+        }
+
+        function calculateStatistics() {
+            if (!summaryData || summaryData.length === 0) {
+                updateStatistics({
+                    total_sessions: 0,
+                    average_attendance: 0,
+                    total_students: 0,
+                    absent_rate: 0
+                });
+                return;
+            }
+
+            const totalStudents = summaryData.length;
+            let totalSessions = 0;
+            let totalAttendance = 0;
+            let totalAbsent = 0;
+
+            summaryData.forEach(student => {
+                const sessions = parseInt(student.total_sessions) || 0;
+                const attendance = parseFloat(student.attendance_rate) || 0;
+                const absent = parseInt(student.absent_count) || 0;
+
+                if (sessions > totalSessions) totalSessions = sessions;
+                totalAttendance += attendance;
+                totalAbsent += absent;
+            });
+
+            const avgAttendance = totalStudents > 0 ? Math.round(totalAttendance / totalStudents) : 0;
+            const totalRecords = summaryData.reduce((sum, s) => sum + (parseInt(s.total_sessions) || 0), 0);
+            const absentRate = totalRecords > 0 ? Math.round((totalAbsent / totalRecords) * 100) : 0;
+
+            updateStatistics({
+                total_sessions: totalSessions,
+                average_attendance: avgAttendance,
+                total_students: totalStudents,
+                absent_rate: absentRate
+            });
+        }
+
+        function sortAndRender() {
+            summaryData.sort((a, b) => {
+                let aVal = a[sortColumn];
+                let bVal = b[sortColumn];
+
+                if (!isNaN(aVal) && !isNaN(bVal)) {
+                    aVal = parseFloat(aVal);
+                    bVal = parseFloat(bVal);
+                } else {
+                    aVal = String(aVal).toLowerCase();
+                    bVal = String(bVal).toLowerCase();
+                }
+
+                if (sortDirection === 'asc') {
+                    return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+                } else {
+                    return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+                }
+            });
+
+            renderTable();
+        }
+
+        function renderTable() {
+            if (summaryData.length === 0) {
+                $('#summaryTable').html('<tr><td colspan="8" class="text-center">No data available</td></tr>');
+                return;
+            }
+
+            const html = summaryData.map(student => {
+                const percentage = student.attendance_rate 
+                    ? Math.round(parseFloat(student.attendance_rate))
+                    : 0;
+                
+                return `
+                    <tr>
+                        <td>${student.matricule || 'N/A'}</td>
+                        <td>${student.full_name}</td>
+                        <td>${student.group_name || 'N/A'}</td>
+                        <td>${student.total_sessions || 0}</td>
+                        <td><span class="badge badge-success">${student.present_count || 0}</span></td>
+                        <td><span class="badge badge-danger">${student.absent_count || 0}</span></td>
+                        <td><span class="badge badge-warning">${student.late_count || 0}</span></td>
+                        <td>
+                            <span class="badge ${getAttendanceBadge(percentage)}">
+                                ${percentage}%
+                            </span>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${percentage}%"></div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            $('#summaryTable').html(html);
+        }
+
+        function updateSortIndicators() {
+            $('.sortable').each(function() {
+                const col = $(this).data('sort');
+                const text = $(this).text().replace(' ▲', '').replace(' ▼', '');
+                
+                if (col === sortColumn) {
+                    $(this).text(text + (sortDirection === 'asc' ? ' ▲' : ' ▼'));
+                } else {
+                    $(this).text(text);
+                }
+            });
+        }
+
+        function resetFilters() {
+            $('#courseFilter').val('');
+            $('#groupFilter').html('<option value="">All Groups</option>');
+            $('#dateFrom').val('');
+            $('#dateTo').val('');
+            summaryData = [];
+            calculateStatistics();
+            $('#summaryTable').html('<tr><td colspan="8" class="text-center">Please select a course and click Filter to view attendance data</td></tr>');
+        }
+
+        function exportData() {
+            if (summaryData.length === 0) {
+                showError('No data to export');
+                return;
+            }
+
+            const exportData = summaryData.map(student => ({
+                'Registration Number': student.matricule || 'N/A',
+                'Full Name': student.full_name,
+                'Group': student.group_name || 'N/A',
+                'Total Sessions': student.total_sessions || 0,
+                'Present': student.present_count || 0,
+                'Absent': student.absent_count || 0,
+                'Late': student.late_count || 0,
+                'Attendance %': student.attendance_rate || 0
+            }));
+
+            const csv = convertToCSV(exportData);
+            const timestamp = new Date().toISOString().split('T')[0];
+            downloadCSV(csv, `attendance_summary_${timestamp}.csv`);
+            showSuccess('Data exported successfully');
+        }
+
+        function convertToCSV(data) {
+            if (!data || data.length === 0) return '';
+            
+            const headers = Object.keys(data[0]);
+            const rows = data.map(row => 
+                headers.map(header => {
+                    const value = row[header];
+                    return typeof value === 'string' && value.includes(',') 
+                        ? `"${value}"` 
+                        : value;
+                }).join(',')
+            );
+            
+            return [headers.join(','), ...rows].join('\n');
+        }
+
+        function downloadCSV(csvContent, filename) {
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function logout() {
+            $.post('../../backend/api/auth.php', { action: 'logout' })
+                .always(function() {
+                    window.location.href = '../index.html';
+                });
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Courses - Student</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">📊 Attendance Management</div>
+        <ul class="nav-menu">
+            <li><a href="home.html" class="active">🏠 My Courses</a></li>
+            <li><a href="attendance.html">📋 Justifications</a></li>
+        </ul>
+        <div class="nav-user">
+            <span id="userName">Student</span>
+            <button id="logoutBtn">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">My Courses & Attendance Overview</h2>
+            </div>
+
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalCourses">0</div>
+                    <div class="stat-label">📚 Enrolled Courses</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgAttendance">0%</div>
+                    <div class="stat-label">📊 Overall Attendance</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalSessions">0</div>
+                    <div class="stat-label">📅 Total Sessions</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="coursesContainer">
+            <div class="text-center" style="padding: 2rem;">
+                <div class="spinner" style="margin: 0 auto;"></div>
+                <p style="margin-top: 1rem; color: var(--text-secondary);">Loading your courses...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script src="../assets/js/student.js"></script>
+</body>
+</html>

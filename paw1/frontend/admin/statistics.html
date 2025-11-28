@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistics - Admin</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">📊 Attendance Management</div>
+        <ul class="nav-menu">
+            <li><a href="home.html">🏠 Dashboard</a></li>
+            <li><a href="students.html">👥 Students</a></li>
+            <li><a href="statistics.html" class="active">📈 Analytics</a></li>
+        </ul>
+        <div class="nav-user">
+            <span id="userName">Admin</span>
+            <button id="logoutBtn">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-between align-center">
+                    <h2 class="card-title">Attendance Statistics</h2>
+                    <div class="d-flex gap-10">
+                        <select id="periodFilter">
+                            <option value="7">Last 7 Days</option>
+                            <option value="30" selected>Last 30 Days</option>
+                            <option value="90">Last 90 Days</option>
+                            <option value="365">Last Year</option>
+                        </select>
+                        <button id="refreshBtn" class="btn btn-primary">🔄 Refresh</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalAttendance">0</div>
+                    <div class="stat-label">📋 Total Records</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgAttendanceRate">0%</div>
+                    <div class="stat-label">📊 Avg Attendance</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="activeCourses">0</div>
+                    <div class="stat-label">📚 Active Courses</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="activeStudents">0</div>
+                    <div class="stat-label">👥 Active Students</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title" style="font-size: 1.1rem;">Attendance Trend</h3>
+                </div>
+                <div style="height: 250px; position: relative;">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title" style="font-size: 1.1rem;">Status Distribution</h3>
+                </div>
+                <div style="height: 250px; position: relative;">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title" style="font-size: 1.1rem;">Attendance by Course</h3>
+            </div>
+            <div style="height: 200px; position: relative;">
+                <canvas id="courseChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Top Performing Students</h3>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Student Name</th>
+                            <th>Registration Number</th>
+                            <th>Group</th>
+                            <th>Attendance Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topStudentsTable">
+                        <tr>
+                            <td colspan="5" class="text-center">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Students Needing Attention (< 75% Attendance)</h3>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student Name</th>
+                            <th>Registration Number</th>
+                            <th>Group</th>
+                            <th>Attendance Rate</th>
+                            <th>Absent Sessions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lowAttendanceTable">
+                        <tr>
+                            <td colspan="5" class="text-center">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script>
+        let trendChart, statusChart, courseChart;
+
+        $(document).ready(function() {
+            checkSession();
+            loadStatistics();
+            
+            $('#logoutBtn').click(logout);
+            $('#refreshBtn').click(loadStatistics);
+            $('#periodFilter').change(loadStatistics);
+        });
+
+        function checkSession() {
+            $.get('../../backend/api/auth.php?action=check')
+                .done(function(response) {
+                    if (response.success && response.data && response.data.role === 'administrator') {
+                        window.currentUser = response.data;
+                        $('#userName').text(response.data.full_name);
+                        return;
+                    }
+                    window.location.href = '../index.html';
+                })
+                .fail(function() {
+                    window.location.href = '../index.html';
+                });
+        }
+
+        function loadStatistics() {
+            showLoading();
+            const period = $('#periodFilter').val();
+
+            $.get('../../backend/api/reports.php', {
+                action: 'statistics',
+                period: period
+            })
+            .done(function(response) {
+                hideLoading();
+                if (response.success) {
+                    updateStats(response.attendance_trend, response.course_stats, response.active_students);
+                    updateTrendChart(response.attendance_trend);
+                    updateStatusChart(response.attendance_trend);
+                    updateCourseChart(response.course_stats);
+                    updateTopStudents(response.top_students);
+                    updateLowAttendance(response.low_attendance);
+                } else {
+                    showError(response.error || 'Failed to load statistics');
+                }
+            })
+            .fail(function(error) {
+                hideLoading();
+                handleError(error);
+            });
+        }
+
+        function updateStats(trendData, courseData, activeStudents) {
+            const totalRecords = trendData ? trendData.reduce((sum, d) => sum + (parseInt(d.total_records) || 0), 0) : 0;
+            const presentCount = trendData ? trendData.reduce((sum, d) => sum + (parseInt(d.present_count) || 0), 0) : 0;
+            const avgAttendance = totalRecords > 0 ? ((presentCount / totalRecords) * 100).toFixed(0) : 0;
+            
+            $('#totalAttendance').text(totalRecords);
+            $('#avgAttendanceRate').text(avgAttendance + '%');
+            $('#activeCourses').text(courseData ? courseData.length : 0);
+            $('#activeStudents').text(activeStudents || 0);
+        }
+
+        function updateTrendChart(data) {
+            if (!data || data.length === 0) return;
+
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            
+            if (trendChart) {
+                trendChart.destroy();
+            }
+
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => formatDate(d.session_date)),
+                    datasets: [{
+                        label: 'Attendance Rate',
+                        data: data.map(d => parseFloat(d.attendance_rate) || 0),
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateStatusChart(trendData) {
+            if (!trendData || trendData.length === 0) return;
+            
+            // Calculate totals from trend data
+            const totalRecords = trendData.reduce((sum, d) => sum + (d.total_records || 0), 0);
+            const presentCount = trendData.reduce((sum, d) => sum + (parseInt(d.present_count) || 0), 0);
+            const absentCount = totalRecords - presentCount;
+
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            
+            if (statusChart) {
+                statusChart.destroy();
+            }
+
+            statusChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Present', 'Absent'],
+                    datasets: [{
+                        data: [
+                            presentCount,
+                            absentCount
+                        ],
+                        backgroundColor: [
+                            '#10b981',
+                            '#dc2626'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCourseChart(data) {
+            if (!data || data.length === 0) return;
+
+            const ctx = document.getElementById('courseChart').getContext('2d');
+            
+            if (courseChart) {
+                courseChart.destroy();
+            }
+
+            courseChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.course_name),
+                    datasets: [{
+                        label: 'Attendance Rate (%)',
+                        data: data.map(d => d.attendance_rate),
+                        backgroundColor: '#2563eb'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateTopStudents(data) {
+            if (!data || data.length === 0) {
+                $('#topStudentsTable').html('<tr><td colspan="5" class="text-center">No data available</td></tr>');
+                return;
+            }
+
+            const html = data.map((student, index) => `
+                <tr>
+                    <td><span class="badge badge-primary">#${index + 1}</span></td>
+                    <td>${student.full_name}</td>
+                    <td>${student.matricule}</td>
+                    <td>${student.group_name}</td>
+                    <td>
+                        <span class="badge badge-success">${student.attendance_rate}%</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${student.attendance_rate}%"></div>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            $('#topStudentsTable').html(html);
+        }
+
+        function updateLowAttendance(data) {
+            if (!data || data.length === 0) {
+                $('#lowAttendanceTable').html('<tr><td colspan="5" class="text-center">No students with low attendance</td></tr>');
+                return;
+            }
+
+            const html = data.map(student => `
+                <tr>
+                    <td>${student.full_name}</td>
+                    <td>${student.matricule}</td>
+                    <td>${student.group_name}</td>
+                    <td>
+                        <span class="badge badge-danger">${student.attendance_rate}%</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${student.attendance_rate}%"></div>
+                        </div>
+                    </td>
+                    <td><span class="badge badge-warning">${student.absent_count}</span></td>
+                </tr>
+            `).join('');
+
+            $('#lowAttendanceTable').html(html);
+        }
+
+        function logout() {
+            $.post('../../backend/api/auth.php', { action: 'logout' })
+                .always(function() {
+                    window.location.href = '../index.html';
+                });
+        }
+    </script>
+</body>
+</html>
+

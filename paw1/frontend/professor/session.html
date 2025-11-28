@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mark Attendance - Professor</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">📊 Attendance Management</div>
+        <ul class="nav-menu">
+            <li><a href="home.html">🏠 Courses</a></li>
+            <li><a href="session.html" class="active">📅 Sessions</a></li>
+            <li><a href="summary.html">📋 Reports</a></li>
+        </ul>
+        <div class="nav-user">
+            <span id="userName">Professor</span>
+            <button id="logoutBtn">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-between align-center">
+                    <div>
+                        <h2 class="card-title" id="sessionTitle">Mark Attendance</h2>
+                        <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+                            <span id="courseName"></span> | 
+                            <span id="sessionDate"></span> | 
+                            <span id="sessionTime"></span>
+                        </p>
+                    </div>
+                    <div>
+                        <button id="closeSessionBtn" class="btn btn-danger">Close Session</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="search-bar">
+                <input type="text" id="searchStudent" placeholder="Search students by name or registration number...">
+                <select id="filterStatus">
+                    <option value="">All Status</option>
+                    <option value="present">Present</option>
+                    <option value="absent">Absent</option>
+                    <option value="late">Late</option>
+                    <option value="excused">Excused</option>
+                </select>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Reg. Number</th>
+                            <th>Full Name</th>
+                            <th>Group</th>
+                            <th>Status</th>
+                            <th>Participation</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTable">
+                        <tr>
+                            <td colspan="6" class="text-center">Loading students...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="margin-top: 1.5rem; padding: 1rem; background: var(--light); border-radius: 8px;">
+                <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                    <div>
+                        <div class="stat-label">Total Students</div>
+                        <div class="stat-value" style="font-size: 1.5rem;" id="totalStudents">0</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">Present</div>
+                        <div class="stat-value" style="font-size: 1.5rem; color: var(--success);" id="presentCount">0</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">Absent</div>
+                        <div class="stat-value" style="font-size: 1.5rem; color: var(--danger);" id="absentCount">0</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">Late</div>
+                        <div class="stat-value" style="font-size: 1.5rem; color: var(--warning);" id="lateCount">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script>
+        let sessionId = null;
+        let students = [];
+        let allStudents = [];
+        let sessionStatus = 'open';
+
+        $(document).ready(function() {
+            checkSession();
+            
+            // Get session ID from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            sessionId = urlParams.get('session_id');
+            
+            if (!sessionId) {
+                showError('No session selected');
+                setTimeout(() => {
+                    window.location.href = 'home.html';
+                }, 2000);
+                return;
+            }
+            
+            loadSessionDetails();
+            loadStudents();
+            
+            $('#logoutBtn').click(logout);
+            $('#closeSessionBtn').click(closeSession);
+            $('#searchStudent').on('input', debounce(filterStudents, 300));
+            $('#filterStatus').change(filterStudents);
+        });
+
+        function checkSession() {
+            $.get('../../backend/api/auth.php?action=check')
+                .done(function(response) {
+                    if (response.success && response.data && response.data.role === 'professor') {
+                        $('#userName').text(response.data.full_name);
+                    } else {
+                        window.location.href = '../index.html';
+                    }
+                })
+                .fail(function() {
+                    window.location.href = '../index.html';
+                });
+        }
+
+        function loadSessionDetails() {
+            $.get('../../backend/api/attendance.php', {
+                action: 'get_session',
+                session_id: sessionId
+            })
+            .done(function(response) {
+                if (response.success && response.data) {
+                    const session = response.data;
+                    sessionStatus = session.status || 'open';
+                    $('#courseName').text(session.course_name);
+                    $('#sessionDate').text(formatDate(session.session_date));
+                    $('#sessionTime').text(formatTime(session.start_time) + ' - ' + formatTime(session.end_time));
+                    
+                    if (session.status === 'closed') {
+                        $('#closeSessionBtn').text('Session Closed').prop('disabled', true);
+                        disableEditing();
+                        showToast('This session is closed', 'info');
+                    }
+                }
+            })
+            .fail(handleError);
+        }
+
+        function loadStudents() {
+            showLoading();
+            $.get('../../backend/api/attendance.php', {
+                action: 'get_students_for_session',
+                session_id: sessionId
+            })
+            .done(function(response) {
+                hideLoading();
+                console.log('Students response:', response);
+                const studentList = Array.isArray(response.data) ? response.data : (response.students || []);
+
+                if (response.success) {
+                    allStudents = studentList;
+                    students = allStudents;
+                    console.log('Students loaded:', students);
+                    renderStudents();
+                    updateStats();
+                    return;
+                }
+
+                console.log('No students or failed:', response);
+                $('#studentsTable').html('<tr><td colspan="6" class="text-center">No students found</td></tr>');
+            })
+            .fail(function(error) {
+                hideLoading();
+                console.error('Load students error:', error);
+                handleError(error);
+            });
+        }
+
+        function renderStudents() {
+            if (students.length === 0) {
+                $('#studentsTable').html('<tr><td colspan="6" class="text-center">No students found</td></tr>');
+                return;
+            }
+
+            const html = students.map(student => `
+                <tr data-student-id="${student.student_id}">
+                    <td>${student.matricule || 'N/A'}</td>
+                    <td>${student.full_name}</td>
+                    <td>${student.group_name || 'N/A'}</td>
+                    <td>
+                        <span class="badge badge-${getStatusBadge(student.status || 'absent')}">
+                            ${student.status || 'Absent'}
+                        </span>
+                    </td>
+                    <td>
+                        <input type="number" 
+                            min="0" 
+                            max="100" 
+                            value="${student.participation_score || 0}"
+                            class="form-control participation-input"
+                            style="width: 80px; display: inline-block; padding: 0.5rem;"
+                            data-student-id="${student.student_id}">
+                    </td>
+                    <td>
+                        <div class="attendance-buttons">
+                            <button class="btn btn-sm btn-success" onclick="markAttendance(${student.student_id}, 'present')">Present</button>
+                            <button class="btn btn-sm btn-danger" onclick="markAttendance(${student.student_id}, 'absent')">Absent</button>
+                            <button class="btn btn-sm btn-warning" onclick="markAttendance(${student.student_id}, 'late')">Late</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            $('#studentsTable').html(html);
+
+            // Handle participation score changes
+            $('.participation-input').on('change', function() {
+                const studentId = $(this).data('student-id');
+                const score = $(this).val();
+                updateParticipation(studentId, score);
+            });
+
+            if (sessionStatus === 'closed') {
+                disableEditing();
+            }
+        }
+
+        function markAttendance(studentId, status) {
+            if (sessionStatus === 'closed') {
+                showToast('Session is closed. You cannot modify attendance.', 'info');
+                return;
+            }
+
+            showLoading();
+            $.post('../../backend/api/attendance.php', {
+                action: 'mark',
+                session_id: sessionId,
+                student_id: studentId,
+                status: status
+            })
+            .done(function(response) {
+                hideLoading();
+                if (response.success) {
+                    showSuccess('Attendance marked successfully');
+                    
+                    // Update local data
+                    const student = students.find(s => s.student_id == studentId);
+                    if (student) {
+                        student.status = status;
+                    }
+                    
+                    renderStudents();
+                    updateStats();
+                }
+            })
+            .fail(function(error) {
+                hideLoading();
+                handleError(error);
+            });
+        }
+
+        function updateParticipation(studentId, score) {
+            if (sessionStatus === 'closed') {
+                showToast('Session is closed. You cannot modify attendance.', 'info');
+                return;
+            }
+
+            $.post('../../backend/api/attendance.php', {
+                action: 'update_participation',
+                session_id: sessionId,
+                student_id: studentId,
+                participation_score: score
+            })
+            .done(function(response) {
+                if (response.success) {
+                    showSuccess('Participation score updated');
+                }
+            })
+            .fail(handleError);
+        }
+
+        function closeSession() {
+            if (!confirm('Are you sure you want to close this session? You won\'t be able to modify attendance after closing.')) {
+                return;
+            }
+
+            showLoading();
+            $.post('../../backend/api/attendance.php', {
+                action: 'close_session',
+                session_id: sessionId
+            })
+            .done(function(response) {
+                hideLoading();
+                if (response.success) {
+                    showSuccess('Session closed successfully');
+                    $('#closeSessionBtn').text('Session Closed').prop('disabled', true);
+                    sessionStatus = 'closed';
+                    disableEditing();
+                }
+            })
+            .fail(function(error) {
+                hideLoading();
+                handleError(error);
+            });
+        }
+
+        function filterStudents() {
+            const search = $('#searchStudent').val().toLowerCase();
+            const status = $('#filterStatus').val();
+
+            students = allStudents.filter(student => {
+                const name = (student.full_name || '').toLowerCase();
+                const matricule = (student.matricule || '').toLowerCase();
+                const matchesSearch = !search || 
+                    name.includes(search) ||
+                    matricule.includes(search);
+                
+                const matchesStatus = !status || (student.status || 'absent') === status;
+
+                return matchesSearch && matchesStatus;
+            });
+
+            renderStudents();
+        }
+
+        function updateStats() {
+            const total = allStudents.length;
+            const present = allStudents.filter(s => s.status === 'present').length;
+            const absent = allStudents.filter(s => !s.status || s.status === 'absent').length;
+            const late = allStudents.filter(s => s.status === 'late').length;
+
+            $('#totalStudents').text(total);
+            $('#presentCount').text(present);
+            $('#absentCount').text(absent);
+            $('#lateCount').text(late);
+        }
+
+        function getStatusBadge(status) {
+            switch(status.toLowerCase()) {
+                case 'present': return 'success';
+                case 'absent': return 'danger';
+                case 'late': return 'warning';
+                case 'excused': return 'info';
+                default: return 'danger';
+            }
+        }
+
+        function disableEditing() {
+            $('.attendance-buttons button').prop('disabled', true).addClass('disabled');
+            $('.participation-input').prop('disabled', true);
+        }
+
+        function logout() {
+            $.post('../../backend/api/auth.php', { action: 'logout' })
+                .always(function() {
+                    window.location.href = '../index.html';
+                });
+        }
+    </script>
+</body>
+</html>
+

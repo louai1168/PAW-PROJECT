@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Sessions - Professor</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">📊 Attendance Management</div>
+        <ul class="nav-menu">
+            <li><a href="home.html">🏠 Courses</a></li>
+            <li><a href="sessions.html" class="active">📅 Sessions</a></li>
+            <li><a href="summary.html">📋 Reports</a></li>
+        </ul>
+        <div class="nav-user">
+            <span id="userName">Professor</span>
+            <button id="logoutBtn">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1 class="mt-20 mb-20">My Sessions</h1>
+
+        <div class="card mb-20">
+            <div class="d-flex justify-between align-center mb-20">
+                <h2 class="card-title">Filter Sessions</h2>
+            </div>
+            
+            <div class="d-flex gap-10 mb-10">
+                <div class="form-group" style="flex: 1;">
+                    <label for="courseFilter">Course</label>
+                    <select id="courseFilter">
+                        <option value="">All Courses</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" style="flex: 1;">
+                    <label for="statusFilter">Status</label>
+                    <select id="statusFilter">
+                        <option value="">All Status</option>
+                        <option value="open">Open</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" style="flex: 1;">
+                    <label for="dateFrom">From Date</label>
+                    <input type="date" id="dateFrom">
+                </div>
+                
+                <div class="form-group" style="flex: 1;">
+                    <label for="dateTo">To Date</label>
+                    <input type="date" id="dateTo">
+                </div>
+            </div>
+            
+            <button id="filterBtn" class="btn btn-primary">🔍 Apply Filter</button>
+            <button id="resetBtn" class="btn btn-secondary">🔄 Reset</button>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title mb-20">Sessions List</h2>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>📅 Date</th>
+                            <th>📚 Course</th>
+                            <th>👥 Group</th>
+                            <th>📝 Type</th>
+                            <th>📊 Status</th>
+                            <th>✅ Attendance</th>
+                            <th>⚙️ Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessionsTable">
+                        <tr>
+                            <td colspan="7" class="text-center">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script>
+        let allSessions = [];
+        
+        $(document).ready(function() {
+            checkAuth().done(function(response) {
+                if (!window.currentUser && response.data) {
+                    window.currentUser = response.data;
+                }
+                $('#userName').text(window.currentUser.full_name);
+                loadCourses();
+                loadSessions();
+            });
+            
+            $('#filterBtn').click(filterSessions);
+            $('#resetBtn').click(resetFilters);
+        });
+        
+        function loadCourses() {
+            $.get('../../backend/api/courses.php', { professor_id: window.currentUser.user_id })
+                .done(function(response) {
+                    if (response.success && response.data) {
+                        const options = response.data.map(course => 
+                            `<option value="${course.course_id}">${course.course_name}</option>`
+                        ).join('');
+                        $('#courseFilter').append(options);
+                    }
+                });
+        }
+        
+        function loadSessions() {
+            showLoading();
+            
+            $.get('../../backend/api/attendance.php', {
+                action: 'get_sessions',
+                professor_id: window.currentUser.user_id
+            })
+            .done(function(response) {
+                hideLoading();
+                if (response.success) {
+                    allSessions = response.data || [];
+                    renderSessions(allSessions);
+                }
+            })
+            .fail(handleError);
+        }
+        
+        function renderSessions(sessions) {
+            if (!sessions || sessions.length === 0) {
+                $('#sessionsTable').html('<tr><td colspan="7" class="text-center">No sessions found</td></tr>');
+                return;
+            }
+            
+            const html = sessions.map(session => {
+                const statusBadge = session.status === 'open' 
+                    ? '<span class="badge badge-success">Open</span>' 
+                    : '<span class="badge">Closed</span>';
+                    
+                const attendanceRate = session.attendance_count > 0 
+                    ? Math.round((session.present_count / session.attendance_count) * 100)
+                    : 0;
+                
+                return `
+                    <tr>
+                        <td>${formatDate(session.session_date)}</td>
+                        <td>${session.course_name}</td>
+                        <td>${session.group_name}</td>
+                        <td>${session.session_type}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            ${session.present_count || 0} / ${session.attendance_count || 0}
+                            (${attendanceRate}%)
+                        </td>
+                        <td>
+                            <a href="session.html?session_id=${session.session_id}" class="btn btn-sm btn-primary">View</a>
+                            ${session.status === 'open' 
+                                ? `<button class="btn btn-sm btn-danger close-session-btn" data-session-id="${session.session_id}">Close</button>`
+                                : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            $('#sessionsTable').html(html);
+            
+            // Attach close session handlers
+            $('.close-session-btn').click(function() {
+                const sessionId = $(this).data('session-id');
+                closeSession(sessionId);
+            });
+        }
+        
+        function filterSessions() {
+            const courseId = $('#courseFilter').val();
+            const status = $('#statusFilter').val();
+            const dateFrom = $('#dateFrom').val();
+            const dateTo = $('#dateTo').val();
+            
+            let filtered = allSessions;
+            
+            if (courseId) {
+                filtered = filtered.filter(s => s.course_id == courseId);
+            }
+            
+            if (status) {
+                filtered = filtered.filter(s => s.status === status);
+            }
+            
+            if (dateFrom) {
+                filtered = filtered.filter(s => s.session_date >= dateFrom);
+            }
+            
+            if (dateTo) {
+                filtered = filtered.filter(s => s.session_date <= dateTo);
+            }
+            
+            renderSessions(filtered);
+        }
+        
+        function resetFilters() {
+            $('#courseFilter').val('');
+            $('#statusFilter').val('');
+            $('#dateFrom').val('');
+            $('#dateTo').val('');
+            renderSessions(allSessions);
+        }
+        
+        function closeSession(sessionId) {
+            if (!confirm('Are you sure you want to close this session? This action cannot be undone.')) {
+                return;
+            }
+            
+            showLoading();
+            
+            $.ajax({
+                url: '../../backend/api/attendance.php',
+                method: 'POST',
+                data: {
+                    action: 'close_session',
+                    session_id: sessionId
+                },
+                success: function(response) {
+                    hideLoading();
+                    if (response.success) {
+                        showSuccess('Session closed successfully');
+                        loadSessions();
+                    }
+                },
+                error: handleError
+            });
+        }
+    </script>
+</body>
+</html>
